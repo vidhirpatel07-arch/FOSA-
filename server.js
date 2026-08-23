@@ -459,7 +459,7 @@ const PORT = process.env.PORT || 3000;
 app.use(express.static(path.join(__dirname, 'dist')));
 
 // Fallback for SPA routing
-app.get('*', (req, res) => {
+app.use((req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
