@@ -1,4 +1,4 @@
-import { login, getSessions, getAdminBookings, updateCapacity, approveBooking, getAdminConfig, updateAdminConfig, getEvents, saveEvent, deleteEvent, addSession, deleteSession } from './store.js';
+import { login, getSessions, getAdminBookings, updateCapacity, approveBooking, deleteBooking, getAdminConfig, updateAdminConfig, getEvents, saveEvent, deleteEvent, addSession, deleteSession } from './store.js';
 
 let authToken = localStorage.getItem('adminToken');
 
@@ -143,6 +143,9 @@ async function renderBookings() {
         `;
       }
       
+      actions += `<div style="margin-top: 8px;"><button class="btn btn-outline" style="padding: 0.2rem 0.5rem; font-size: 0.75rem; color: #ef4444; border-color: #ef4444; width: 100%;" onclick="if(confirm('Are you sure you want to permanently remove this booking?')) window.removeBooking('${booking.id}')">Remove</button></div>`;
+
+      
       let receiptHtml = '';
       if (booking.receiptUrl) {
         receiptHtml = `<br><span class="receipt-link" onclick="window.viewReceipt('${booking.receiptUrl}')" style="font-size:0.8rem;">Payment Screenshot</span>`;
@@ -185,6 +188,12 @@ window.approve = async (bookingId) => {
   const res = await approveBooking(bookingId, authToken);
   if(res.success) renderBookings();
   else alert(res.error);
+};
+
+window.removeBooking = async (bookingId) => {
+  const res = await deleteBooking(bookingId, authToken);
+  if(res.success) renderBookings();
+  else alert(res.error || 'Failed to remove booking');
 };
 
 window.viewReceipt = (url) => {

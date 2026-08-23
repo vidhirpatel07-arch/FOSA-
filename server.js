@@ -14,7 +14,7 @@ app.use(cors());
 app.use(express.json());
 
 // Simple hardcoded admin credentials and token
-const ADMIN_EMAIL = 'forceonesportsacademy@gmail.com';
+const ADMIN_EMAIL = 'forceoneDefenceacademy@gmail.com';
 const ADMIN_PASS = 'FOSA@admin01';
 const ADMIN_TOKEN = 'fosa-super-secret-admin-token-2026';
 
@@ -141,7 +141,7 @@ db.serialize(() => {
         '1500',
         '',
         '7AM & 5:30PM',
-        'Force One Sports Academy',
+        'Force One Defence Academy',
         'https://forceoneacademy.in'
       );
       eventStmt.finalize();
@@ -398,6 +398,14 @@ app.get('/api/admin/bookings', requireAuth, (req, res) => {
       details: JSON.parse(r.details)
     }));
     res.json(parsed);
+  });
+});
+
+// Admin delete a booking
+app.delete('/api/admin/bookings/:id', requireAuth, (req, res) => {
+  db.run(`DELETE FROM bookings WHERE id = ?`, [req.params.id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ success: true });
   });
 });
 

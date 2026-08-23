@@ -81,6 +81,14 @@ export const getAdminBookings = async (token) => {
   return await res.json();
 };
 
+export const deleteBooking = async (id, token) => {
+  const res = await fetch(`${API_URL}/admin/bookings/${id}`, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${token}` }
+  });
+  return await res.json();
+};
+
 export const updateCapacity = async (sessionId, capacity, token) => {
   const res = await fetch(`${API_URL}/admin/capacity`, {
     method: 'POST',

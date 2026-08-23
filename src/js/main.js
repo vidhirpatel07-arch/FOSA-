@@ -22,6 +22,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     observer.observe(element);
   });
 
+  // Global Event Delegation for FAQs (Fixes mobile touch issues and dynamic rendering bugs)
+  document.addEventListener('click', (e) => {
+    const question = e.target.closest('.faq-question');
+    if (!question) return;
+    const item = question.closest('.faq-item');
+    if (!item) return;
+
+    const isActive = item.classList.contains('active');
+    
+    // Close other FAQs in the same container
+    const container = item.parentElement;
+    if (container) {
+      container.querySelectorAll('.faq-item').forEach(faq => {
+        faq.classList.remove('active');
+        const span = faq.querySelector('span');
+        if (span) span.textContent = '+';
+      });
+    }
+
+    if (!isActive) {
+      item.classList.add('active');
+      const span = item.querySelector('span');
+      if (span) span.textContent = '-';
+    }
+  });
+
   // Workshop Details Expand
   const toggleBtn = document.getElementById('toggle-details-btn');
   const detailsArea = document.getElementById('workshop-details');
@@ -32,22 +58,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // FAQ Accordion
-  const faqItems = document.querySelectorAll('.faq-item');
-  faqItems.forEach(item => {
-    const question = item.querySelector('.faq-question');
-    question.addEventListener('click', () => {
-      const isActive = item.classList.contains('active');
-      faqItems.forEach(faq => {
-        faq.classList.remove('active');
-        faq.querySelector('span').textContent = '+';
-      });
-      if (!isActive) {
-        item.classList.add('active');
-        item.querySelector('span').textContent = '-';
-      }
-    });
-  });
+  // FAQ Accordion is now handled via event delegation globally.
 
   // Load Notifications
   loadNotifications();
@@ -202,21 +213,6 @@ async function renderDynamicContent() {
       btn.addEventListener('click', () => {
         details.classList.toggle('expanded');
         btn.innerText = details.classList.contains('expanded') ? 'Show Less Details' : 'Know More About Event';
-      });
-    });
-    
-    document.querySelectorAll('.faq-item').forEach(item => {
-      const question = item.querySelector('.faq-question');
-      question.addEventListener('click', () => {
-        const isActive = item.classList.contains('active');
-        item.parentElement.querySelectorAll('.faq-item').forEach(faq => {
-          faq.classList.remove('active');
-          faq.querySelector('span').textContent = '+';
-        });
-        if (!isActive) {
-          item.classList.add('active');
-          item.querySelector('span').textContent = '-';
-        }
       });
     });
   }

@@ -33,11 +33,11 @@ function renderTicket(data) {
   if (event) {
     document.getElementById('t-event-name').innerText = event.title;
     document.getElementById('t-date').innerText = event.date;
-    document.getElementById('t-location').innerText = event.location_text || 'Force One Sports Academy';
+    document.getElementById('t-location').innerText = event.location_text || 'Force One Defence Academy';
   } else {
     document.getElementById('t-event-name').innerText = 'Unknown Event';
     document.getElementById('t-date').innerText = '--';
-    document.getElementById('t-location').innerText = 'Force One Sports Academy';
+    document.getElementById('t-location').innerText = 'Force One Defence Academy';
   }
   
   if (session) {

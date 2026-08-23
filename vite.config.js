@@ -12,7 +12,8 @@ export default defineConfig({
         terms: resolve(__dirname, 'terms.html'),
         payment_guide: resolve(__dirname, 'payment-guide.html'),
         contact: resolve(__dirname, 'contact.html'),
-        receipt: resolve(__dirname, 'receipt.html')
+        receipt: resolve(__dirname, 'receipt.html'),
+        gallery: resolve(__dirname, 'gallery.html')
       }
     }
   },
