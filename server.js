@@ -14,7 +14,7 @@ app.use(cors());
 app.use(express.json());
 
 // Simple hardcoded admin credentials and token
-const ADMIN_EMAIL = 'forceoneDefenceacademy@gmail.com';
+const ADMIN_EMAIL = 'forceonesportsacademy@gmail.com';
 const ADMIN_PASS = 'FOSA@admin01';
 const ADMIN_TOKEN = 'fosa-super-secret-admin-token-2026';
 
