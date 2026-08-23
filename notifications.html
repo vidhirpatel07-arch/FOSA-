@@ -1,0 +1,77 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=800" />
+  <title>Notifications | Force One Sports Academy</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/css/style.css" />
+  <style>
+    .notif-page { padding: var(--spacing-lg) var(--spacing-sm); max-width: 800px; margin: 0 auto; min-height: 80vh; }
+    .notif-card { background: white; border-radius: var(--radius-md); box-shadow: var(--shadow-sm); padding: 1.5rem; margin-bottom: 1rem; border-left: 4px solid var(--color-accent-gold); }
+    .notif-card.read { border-left-color: var(--color-primary-beige); background: #fafafa; }
+    .notif-time { color: #888; font-size: 0.85rem; margin-top: 5px; }
+  </style>
+  <link rel="icon" href="/images/logo.png" type="image/png">
+</head>
+<body style="background: var(--color-primary-ivory); padding-top: 80px;">
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <a href="/" class="nav-logo">
+      <img src="/images/logo.png" alt="Force One Sports Academy" />
+    </a>
+    <div class="nav-right">
+      <a href="/" class="btn btn-outline" style="padding: 0.5rem 1rem;">Back to Home</a>
+    </div>
+  </nav>
+
+  <div class="notif-page">
+    <h2 class="mb-md">Your Notifications</h2>
+    <div id="notifications-list">
+      Loading notifications...
+    </div>
+  </div>
+
+  <script type="module">
+    import { getNotifications, getUserId, markNotificationsRead } from '/src/js/store.js';
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      const uid = getUserId();
+      const container = document.getElementById('notifications-list');
+      async function fetchAndRender() {
+        const notifs = await getNotifications(uid);
+        if (notifs.length === 0) {
+          container.innerHTML = '<p>You have no notifications yet.</p>';
+          return;
+        }
+
+        function formatTime(dateString) {
+          // Parse SQLite UTC timestamp into local timezone
+          const date = new Date(dateString.replace(' ', 'T') + 'Z');
+          return date.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }) + " at " + date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        container.innerHTML = notifs.map(n => `
+          <div class="notif-card ${n.isRead ? 'read' : ''}">
+            <p style="color: var(--color-primary-charcoal); line-height: 1.5; font-size: 1.05rem;">${n.message}</p>
+            <div class="notif-time" style="color: var(--color-secondary-taupe); font-size: 0.85rem; margin-top: 10px; font-weight: 500;">
+              ${formatTime(n.createdAt)}
+            </div>
+          </div>
+        `).join('');
+      }
+
+      await fetchAndRender();
+      setInterval(fetchAndRender, 5000);
+
+      // Mark unread as read
+      const unreadIds = notifs.filter(n => !n.isRead).map(n => n.id);
+      if (unreadIds.length > 0) {
+        await markNotificationsRead(unreadIds);
+      }
+    });
+  </script>
+</body>
+</html>
+

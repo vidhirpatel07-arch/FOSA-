@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard | Workshop</title>
+  <style>
+    body { background: #f8fafc; font-size: 0.95rem; margin: 0; padding: 0; }
+    .admin-container { padding: 2rem; max-width: 1200px; margin: 0 auto; }
+    .admin-card { background: white; padding: 2rem; border-radius: var(--radius-md); box-shadow: var(--shadow-sm); margin-bottom: 2rem; }
+    .table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    .table th, .table td { padding: 1rem; text-align: left; border-bottom: 1px solid #e2e8f0; }
+    .table th { background: #f1f5f9; font-weight: 600; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 1px; }
+    .badge { padding: 0.25rem 0.75rem; border-radius: var(--radius-full); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;}
+    .badge-pending { background: #fef08a; color: #854d0e; }
+    .badge-confirmed { background: #bbf7d0; color: #166534; }
+    .receipt-link { color: #2563eb; text-decoration: underline; cursor: pointer; }
+    
+    .receipt-modal {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 2000;
+    }
+    .receipt-modal.active { display: flex; }
+    .receipt-modal img { max-width: 90%; max-height: 90vh; border-radius: 8px; }
+    .close-receipt { position: absolute; top: 20px; right: 20px; color: white; font-size: 2rem; background: none; border: none; cursor: pointer; }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 10px; margin-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; }
+    .tab-btn { background: none; border: none; padding: 10px 20px; font-weight: 600; cursor: pointer; color: #64748b; font-size: 1rem; border-bottom: 3px solid transparent; margin-bottom: -2px; }
+    .tab-btn.active { color: var(--color-primary-charcoal); border-bottom-color: var(--color-accent-gold); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+  </style>
+  <link rel="icon" href="/images/logo.png" type="image/png">
+  <script type="module" crossorigin src="/assets/admin-CwTgS_Jw.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/store-C-SBEWck.js">
+  <link rel="stylesheet" crossorigin href="/assets/style-D8XVh80g.css">
+</head>
+<body>
+
+  <!-- Login Screen -->
+  <div id="login-screen" style="display: flex; align-items: center; justify-content: center; height: 100vh;">
+    <div class="admin-card" style="width: 400px; text-align: center;">
+      <h2 style="font-family: var(--font-heading); color: var(--color-primary-charcoal);">Admin Login</h2>
+      <p style="color: #64748b; margin-bottom: 1.5rem;">Secure CMS Access</p>
+      <div class="form-group">
+        <input type="email" id="admin-email" class="form-control" placeholder="Email Address">
+      </div>
+      <div class="form-group">
+        <input type="password" id="admin-password" class="form-control" placeholder="Password">
+      </div>
+      <button class="btn btn-primary" style="width: 100%;" onclick="window.loginAdmin()">Login</button>
+    </div>
+  </div>
+
+  <!-- Main Dashboard -->
+  <div id="admin-dashboard" class="admin-container" style="display: none;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2rem;">
+      <h2 style="font-family: var(--font-body); font-weight: 600;">Workshop Admin CMS</h2>
+      <div style="display:flex; gap:10px;">
+        <a href="/" class="btn btn-outline" style="padding: 0.5rem 1rem;">View Website</a>
+        <button class="btn btn-primary" style="padding: 0.5rem 1rem;" onclick="window.logoutAdmin()">Logout</button>
+      </div>
+    </div>
+
+    <!-- Tabs Header -->
+    <div class="tabs">
+      <button class="tab-btn active" id="btn-bookings" onclick="window.switchTab('bookings')">Bookings</button>
+      <button class="tab-btn" id="btn-events" onclick="window.switchTab('events')">Events</button>
+      <button class="tab-btn" id="btn-hero" onclick="window.switchTab('hero')">Hero Images</button>
+    </div>
+
+    <!-- Bookings Tab -->
+    <div id="tab-bookings" class="tab-content active">
+      <div class="admin-card">
+        <h3 class="mb-sm">All Bookings</h3>
+        <div style="overflow-x: auto;">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Customer</th>
+                <th>Details</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="admin-bookings">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Events Tab -->
+    <div id="tab-events" class="tab-content">
+      <div class="admin-card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1rem;">
+          <h3 class="mb-sm" style="margin:0;">Manage Events</h3>
+          <button class="btn btn-primary" style="padding:0.4rem 1rem; font-size:0.9rem;" onclick="window.openEventEditor()">Add Event</button>
+        </div>
+        <div id="admin-events-list">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+    </div>
+
+
+    <!-- Hero Carousel Tab -->
+    <div id="tab-hero" class="tab-content">
+      <div class="admin-card">
+        <h3 class="mb-sm">Manage Homepage Hero Images</h3>
+        <p style="color:#64748b; font-size:0.9rem; margin-bottom: 1rem;">Add URLs of images for the main slideshow.</p>
+        <div id="admin-hero-images" style="display:flex; flex-direction:column; gap:10px; margin-bottom: 1rem;">
+          <!-- Populated by JS -->
+        </div>
+        <div style="display:flex; gap:10px;">
+          <input type="text" id="new-hero-url" class="form-control" placeholder="/images/my_image.jpg" style="flex:1;">
+          <button class="btn btn-primary" onclick="window.addHeroImage()">Add Image</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="receipt-modal" id="receipt-modal">
+    <button class="close-receipt" onclick="document.getElementById('receipt-modal').classList.remove('active')">&times;</button>
+    <img id="receipt-img" src="" alt="Receipt" />
+  </div>
+
+  <!-- Event Editor Modal -->
+  <div class="modal-overlay" id="event-editor-modal" style="z-index: 3000;">
+    <div class="modal-content" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
+      <button class="modal-close" onclick="document.getElementById('event-editor-modal').classList.remove('active')">&times;</button>
+      <h2 class="mb-md" id="editor-title" style="font-family: var(--font-heading); color: var(--color-primary-charcoal);">Add Event</h2>
+      
+      <input type="hidden" id="edit-event-id">
+      
+      <div class="grid grid-2" style="margin-bottom: 1rem;">
+        <div class="form-group">
+          <label>Event Title</label>
+          <input type="text" id="edit-title" class="form-control" placeholder="e.g. Pilates Ã— Equestrian">
+        </div>
+        <div class="form-group">
+          <label>Date String</label>
+          <input type="text" id="edit-date" class="form-control" placeholder="e.g. 12 Sep 2026">
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <label>Short Description</label>
+        <textarea id="edit-desc" class="form-control" rows="2" placeholder="Brief tagline"></textarea>
+      </div>
+      
+      <div class="form-group">
+        <label>Hero Image URL</label>
+        <input type="text" id="edit-hero" class="form-control" placeholder="/images/pilates_2.jpg">
+      </div>
+      
+      <!-- Display Details -->
+      <div class="admin-card" style="padding: 1rem; margin-bottom: 1rem; box-shadow: none; border: 1px solid #e2e8f0;">
+        <label style="font-weight: 600; display: block; margin-bottom: 0.5rem;">Event Details Display</label>
+        <div class="grid grid-2" style="margin-bottom: 10px;">
+          <div class="form-group">
+            <label style="font-size: 0.85rem;">Price (₹)</label>
+            <input type="text" id="edit-price" class="form-control" placeholder="1500">
+          </div>
+          <div class="form-group">
+            <label style="font-size: 0.85rem;">Discount Price (Optional)</label>
+            <input type="text" id="edit-discount-price" class="form-control" placeholder="1200">
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom: 10px;">
+          <label style="font-size: 0.85rem;">Sessions Display Text</label>
+          <input type="text" id="edit-session-text" class="form-control" placeholder="7AM & 5:30PM">
+        </div>
+        <div class="grid grid-2">
+          <div class="form-group">
+            <label style="font-size: 0.85rem;">Location Name</label>
+            <input type="text" id="edit-loc-text" class="form-control" placeholder="Force One Sports Academy">
+          </div>
+          <div class="form-group">
+            <label style="font-size: 0.85rem;">Location Google Maps Link</label>
+            <input type="text" id="edit-loc-link" class="form-control" placeholder="https://maps...">
+          </div>
+        </div>
+      </div>
+      
+      <!-- Tags -->
+      <div class="admin-card" style="padding: 1rem; margin-bottom: 1rem; box-shadow: none; border: 1px solid #e2e8f0;">
+        <label style="font-weight: 600; display: block; margin-bottom: 0.5rem;">Tags</label>
+        <div id="edit-tags-container" style="display:flex; gap:5px; flex-wrap:wrap; margin-bottom:0.5rem;"></div>
+        <div style="display:flex; gap:10px;">
+          <input type="text" id="new-tag" class="form-control" placeholder="e.g. Beginner Friendly" style="flex:1;">
+          <button class="btn btn-outline" style="padding: 0.4rem 1rem;" onclick="window.addEditorTag()">Add Tag</button>
+        </div>
+      </div>
+      
+      <!-- Timeline -->
+      <div class="admin-card" style="padding: 1rem; margin-bottom: 1rem; box-shadow: none; border: 1px solid #e2e8f0;">
+        <label style="font-weight: 600; display: block; margin-bottom: 0.5rem;">Timeline</label>
+        <div id="edit-timeline-container" style="display:flex; flex-direction:column; gap:10px; margin-bottom: 1rem;"></div>
+        <div style="display:flex; gap:10px;">
+          <input type="text" id="new-tl-time" class="form-control" placeholder="Time (e.g. 01 Welcome)" style="width:150px;">
+          <input type="text" id="new-tl-desc" class="form-control" placeholder="Description" style="flex:1;">
+          <button class="btn btn-outline" style="padding: 0.4rem 1rem;" onclick="window.addEditorTimeline()">Add</button>
+        </div>
+      </div>
+      
+      <!-- FAQs -->
+      <div class="admin-card" style="padding: 1rem; margin-bottom: 1rem; box-shadow: none; border: 1px solid #e2e8f0;">
+        <label style="font-weight: 600; display: block; margin-bottom: 0.5rem;">FAQs</label>
+        <div id="edit-faqs-container" style="display:flex; flex-direction:column; gap:10px; margin-bottom: 1rem;"></div>
+        <div style="display:flex; gap:10px;">
+          <input type="text" id="new-faq-q" class="form-control" placeholder="Question" style="flex:1;">
+          <input type="text" id="new-faq-a" class="form-control" placeholder="Answer" style="flex:1;">
+          <button class="btn btn-outline" style="padding: 0.4rem 1rem;" onclick="window.addEditorFaq()">Add FAQ</button>
+        </div>
+      </div>
+      
+      <!-- Gallery -->
+      <div class="admin-card" style="padding: 1rem; margin-bottom: 1rem; box-shadow: none; border: 1px solid #e2e8f0;">
+        <label style="font-weight: 600; display: block; margin-bottom: 0.5rem;">Event Gallery Images</label>
+        <div id="edit-gallery-container" style="display:flex; flex-direction:column; gap:10px; margin-bottom: 1rem;"></div>
+        <div style="display:flex; gap:10px;">
+          <input type="text" id="new-gallery-url" class="form-control" placeholder="/images/gallery1.jpg" style="flex:1;">
+          <button class="btn btn-outline" style="padding: 0.4rem 1rem;" onclick="window.addEditorGallery()">Add Image</button>
+        </div>
+      </div>
+      
+      <!-- Event Sessions -->
+      <div class="admin-card" style="padding: 1rem; margin-bottom: 1rem; box-shadow: none; border: 1px solid #e2e8f0;" id="event-sessions-section">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 1rem;">
+          <label style="font-weight: 600; display: block; margin: 0;">Event Sessions</label>
+          <button class="btn btn-primary" style="padding: 0.3rem 0.8rem; font-size: 0.85rem;" onclick="document.getElementById('add-session-form').style.display = 'block'">+ Add Session</button>
+        </div>
+        
+        <div id="editor-sessions-list" style="display:flex; flex-direction:column; gap:10px; margin-bottom: 1rem;">
+          <!-- Populated by JS -->
+        </div>
+        
+        <div id="add-session-form" style="display: none; background: var(--color-primary-ivory); padding: 1rem; border-radius: 8px; border: 1px solid var(--color-primary-beige); margin-top: 1rem;">
+          <h4 style="margin-bottom: 0.5rem; font-size: 0.95rem;">Create New Session</h4>
+          <div class="grid grid-2" style="margin-bottom: 0.5rem; gap: 10px;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label style="font-size: 0.8rem;">Session Name</label>
+              <input type="text" id="new-session-name" class="form-control" placeholder="e.g. Morning Batch" style="padding: 0.4rem;">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label style="font-size: 0.8rem;">Time</label>
+              <input type="text" id="new-session-time" class="form-control" placeholder="e.g. 7:00 AM" style="padding: 0.4rem;">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label style="font-size: 0.8rem;">Capacity</label>
+              <input type="number" id="new-session-capacity" class="form-control" value="20" style="padding: 0.4rem;">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label style="font-size: 0.8rem;">Price (₹)</label>
+              <input type="number" id="new-session-price" class="form-control" value="1500" style="padding: 0.4rem;">
+            </div>
+          </div>
+          <div style="margin-top: 0.5rem;">
+            <button class="btn btn-primary" style="padding: 0.4rem 1rem; font-size: 0.85rem;" onclick="window.createSession()">Save Session</button>
+            <button class="btn btn-outline" style="padding: 0.4rem 1rem; font-size: 0.85rem;" onclick="document.getElementById('add-session-form').style.display = 'none'">Cancel</button>
+          </div>
+        </div>
+      </div>
+
+      
+      <div style="display: flex; justify-content: space-between; margin-top: 1rem;">
+        <button class="btn btn-outline" style="color:red; border-color:red;" id="btn-delete-event" onclick="window.deleteCurrentEvent()">Delete Event</button>
+        <button class="btn btn-primary" onclick="window.saveCurrentEvent()">Save Event</button>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
+
