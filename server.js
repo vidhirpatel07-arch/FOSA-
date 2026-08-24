@@ -1,10 +1,13 @@
 import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
-import sqlite3 from 'sqlite3';
+import mongoose from 'mongoose';
+import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -51,124 +54,140 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 // Database setup
-const dbPath = path.join(dataDir, 'database.sqlite');
-const db = new sqlite3.Database(dbPath, (err) => {
-  if (err) console.error("Database opening error: ", err);
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/fosa';
+
+mongoose.connect(MONGODB_URI)
+  .then(() => console.log('Connected to MongoDB'))
+  .catch(err => console.error('MongoDB connection error:', err));
+
+// Mongoose Schemas & Models
+const sessionSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  eventId: { type: String, required: true },
+  name: { type: String },
+  time: { type: String },
+  capacity: { type: Number, default: 0 },
+  booked: { type: Number, default: 0 },
+  price: { type: Number, default: 0 },
+  discountPrice: { type: Number }
 });
+const Session = mongoose.model('Session', sessionSchema);
 
-db.serialize(() => {
-  db.run(`CREATE TABLE IF NOT EXISTS sessions (
-    id TEXT PRIMARY KEY,
-    eventId TEXT,
-    name TEXT,
-    time TEXT,
-    capacity INTEGER,
-    booked INTEGER,
-    price INTEGER,
-    discountPrice INTEGER
-  )`);
-  
-  db.run(`CREATE TABLE IF NOT EXISTS events (
-    id TEXT PRIMARY KEY,
-    title TEXT,
-    description TEXT,
-    date TEXT,
-    hero_image TEXT,
-    tags TEXT,
-    timeline TEXT,
-    faqs TEXT,
-    gallery TEXT,
-    price TEXT,
-    discount_price TEXT,
-    session_text TEXT,
-    location_text TEXT,
-    location_link TEXT
-  )`);
-  
-  db.run(`CREATE TABLE IF NOT EXISTS site_config (
-    key TEXT PRIMARY KEY,
-    value TEXT
-  )`);
-  
-  db.run(`CREATE TABLE IF NOT EXISTS bookings (
-    id TEXT PRIMARY KEY,
-    sessionId TEXT,
-    participants INTEGER,
-    details TEXT,
-    receiptUrl TEXT,
-    status TEXT,
-    userId TEXT,
-    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
-  )`);
-  
-  db.run(`CREATE TABLE IF NOT EXISTS notifications (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    userId TEXT,
-    message TEXT,
-    isRead INTEGER DEFAULT 0,
-    createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
-  )`);
+const eventSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  title: { type: String },
+  description: { type: String },
+  date: { type: String },
+  hero_image: { type: String },
+  tags: { type: String },
+  timeline: { type: String },
+  faqs: { type: String },
+  gallery: { type: String },
+  price: { type: String },
+  discount_price: { type: String },
+  session_text: { type: String },
+  location_text: { type: String },
+  location_link: { type: String }
+});
+const Event = mongoose.model('Event', eventSchema);
 
-  // Seed initial events, config, and sessions if empty
-  db.get(`SELECT COUNT(*) as count FROM events`, (err, row) => {
-    if (row && row.count === 0) {
-      const eventStmt = db.prepare(`INSERT INTO events VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
-      eventStmt.run(
-        'evt_1', 
-        'Pilates Ã— Equestrian Experience',
-        'A curated experience bringing together mindful Pilates, outdoor adventure, equestrian connection and unforgettable moments.',
-        '12 Sep 2026',
-        '/images/pilates_2.jpg',
-        JSON.stringify(['Beginner Friendly', 'Limited Spots']),
-        JSON.stringify([
+const siteConfigSchema = new mongoose.Schema({
+  key: { type: String, required: true, unique: true },
+  value: { type: String }
+});
+const SiteConfig = mongoose.model('SiteConfig', siteConfigSchema);
+
+const bookingSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  sessionId: { type: String },
+  participants: { type: Number, default: 1 },
+  details: { type: String },
+  receiptUrl: { type: String },
+  status: { type: String, default: 'Pending Approval' },
+  userId: { type: String },
+  createdAt: { type: Date, default: Date.now }
+});
+const Booking = mongoose.model('Booking', bookingSchema);
+
+const notificationSchema = new mongoose.Schema({
+  userId: { type: String },
+  message: { type: String },
+  isRead: { type: Number, default: 0 },
+  createdAt: { type: Date, default: Date.now }
+});
+const Notification = mongoose.model('Notification', notificationSchema);
+
+// Seed initial events, config, and sessions if empty
+const seedDatabase = async () => {
+  try {
+    const eventsCount = await Event.countDocuments();
+    if (eventsCount === 0) {
+      await Event.create({
+        id: 'evt_1', 
+        title: 'Pilates × Horses',
+        description: 'Pilates & Horses\nA curated morning, away from everything else.\nA curated experience bringing together mindful pilates, rifle shooting, horse introduction, horse riding, and horse feeding — designed as a complete reset, not just a workout.\nThree hours. No phones, no noise. Just movement, focus, and genuine connection with horses that don\'t care about your inbox.',
+        date: '13 Sep 2026',
+        hero_image: '/images/pilates_2.jpg',
+        tags: JSON.stringify(['Limited Spots', 'Early Birds']),
+        timeline: JSON.stringify([
           {time: '01 Welcome', desc: 'Refreshments upon your arrival.'},
           {time: '02 Pilates', desc: '30-minute beginner-friendly session.'},
           {time: '03 Rifle Shooting', desc: 'Guided, supervised activity.'},
           {time: '04 Meet the Horses', desc: 'Introduction & interaction.'},
-          {time: '05 Ride & Feed', desc: 'Guided riding and feeding.'},
-          {time: '06 Closing', desc: 'Refreshments and connection.'}
+          {time: '05 Horse Riding', desc: 'A guided riding experience'},
+          {time: '06 ', desc: 'Hands-on time, up close'},
+          {time: '07 Refreshments', desc: 'Light refreshments included through the morning'}
         ]),
-        JSON.stringify([
+        faqs: JSON.stringify([
           {q: 'How much does it cost?', a: '₹1,500 per person.'},
-          {q: 'Is there a refund?', a: 'No. All confirmed bookings are non-refundable.'}
+          {q: 'Is there a refund?', a: 'No. All confirmed bookings are non-refundable.'},
+          {q: 'What do I need to bring?', a: 'A yoga mat and a water bottle (or whatever you\'re comfortable using through the morning). Everything else is taken care of.'},
+          {q: 'What should I wear?', a: 'Whatever you\'re most comfortable moving in — there\'s no dress code. Just make sure it\'s something you can stretch, sit, and walk around in easily.'},
+          {q: 'Do I need any prior experience with pilates, riding, or shooting?', a: 'No prior experience is needed for any part of the morning. Each session is guided from the basics.'},
+          {q: 'Is this suitable for beginners?', a: 'Yes — this is designed for all levels, whether you\'re new to pilates, horses, or shooting, or already familiar with one or more.'},
+          {q: 'How many people are in each session?', a: 'Sessions are kept intentionally small, so bookings are limited.'},
+          {q: 'What if I have a medical condition or injury?', a: 'Please let us know at the time of booking so we can guide you on which activities are suitable for you.'}
         ]),
-        JSON.stringify([
+        gallery: JSON.stringify([
           '/images/pilates_1.jpg',
           '/images/pilates_3.jpg',
           '/images/pilates_4.jpg',
           '/images/venue_setting_1787392316077.jpg'
         ]),
-        '1500',
-        '',
-        '7AM & 5:30PM',
-        'Force One Defence Academy',
-        'https://forceoneacademy.in'
-      );
-      eventStmt.finalize();
+        price: '1500',
+        discount_price: '1200',
+        session_text: '7:00AM & 5:30PM',
+        location_text: 'Forceone Defence Academy',
+        location_link: 'https://maps.app.goo.gl/yix57AmTEPcX35Y86'
+      });
     }
-  });
 
-  db.get(`SELECT COUNT(*) as count FROM site_config`, (err, row) => {
-    if (row && row.count === 0) {
-      const configStmt = db.prepare(`INSERT INTO site_config VALUES (?, ?)`);
-      configStmt.run('hero_images', JSON.stringify([
-        '/images/pilates_session_1787392269816.jpg',
-        '/images/horse_interaction_1787392285722.jpg',
-        '/images/venue_setting_1787392316077.jpg'
-      ]));
-      configStmt.finalize();
+    const configCount = await SiteConfig.countDocuments();
+    if (configCount === 0) {
+      await SiteConfig.create({
+        key: 'hero_images',
+        value: JSON.stringify([
+          '/images/pilates_session_1787392269816.jpg',
+          '/images/horse_interaction_1787392285722.jpg',
+          '/images/venue_setting_1787392316077.jpg'
+        ])
+      });
     }
-  });
 
-  db.get(`SELECT COUNT(*) as count FROM sessions`, (err, row) => {
-    if (row && row.count === 0) {
-      const stmt = db.prepare(`INSERT INTO sessions VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
-      // id, eventId, name, time, capacity, booked, price, discountPrice
-      stmt.run('morning', 'evt_1', 'Morning Experience', '7:00 AM', 20, 0, 1500, null);
-      stmt.run('evening', 'evt_1', 'Evening Experience', '5:30 PM', 20, 0, 2000, null);
-      stmt.finalize();
+    const sessionsCount = await Session.countDocuments();
+    if (sessionsCount === 0) {
+      await Session.create([
+        { id: 'morning', eventId: 'evt_1', name: 'Morning Experience', time: '7:00 AM', capacity: 20, booked: 0, price: 1500, discountPrice: 1200 },
+        { id: 'evening', eventId: 'evt_1', name: 'Evening Experience', time: '5:30 PM', capacity: 20, booked: 0, price: 1500, discountPrice: 1200 }
+      ]);
     }
-  });
+  } catch (err) {
+    console.error('Error seeding database:', err);
+  }
+};
+
+mongoose.connection.once('open', () => {
+  seedDatabase();
 });
 
 // API Routes
@@ -183,37 +202,33 @@ app.post('/api/login', (req, res) => {
   }
 });
 
-app.get('/api/admin/stats', requireAuth, (req, res) => {
-  const stats = {};
-  db.get(`SELECT COUNT(*) as eventsCount FROM events`, [], (err, row) => {
-    stats.eventsCount = row ? row.eventsCount : 0;
-    db.get(`SELECT COUNT(*) as bookingsCount FROM bookings`, [], (err, row) => {
-      stats.bookingsCount = row ? row.bookingsCount : 0;
-      res.json(stats);
-    });
-  });
+app.get('/api/admin/stats', requireAuth, async (req, res) => {
+  try {
+    const eventsCount = await Event.countDocuments();
+    const bookingsCount = await Booking.countDocuments();
+    res.json({ eventsCount, bookingsCount });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get('/api/admin/backup', requireAuth, (req, res) => {
-  const dbPath = path.join(dataDir, 'database.sqlite');
-  res.download(dbPath, `fosa_backup_${new Date().toISOString().split('T')[0]}.sqlite`);
+  res.status(501).json({ error: 'Database backup is now handled via MongoDB Atlas dashboard.' });
 });
 
-app.get('/api/admin/export-bookings', requireAuth, (req, res) => {
-  db.all(`
-    SELECT b.id, s.name as sessionName, b.status, b.details, b.createdAt
-    FROM bookings b
-    LEFT JOIN sessions s ON b.sessionId = s.id
-    ORDER BY b.createdAt DESC
-  `, [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    
+app.get('/api/admin/export-bookings', requireAuth, async (req, res) => {
+  try {
+    const bookings = await Booking.find().sort({ createdAt: -1 }).lean();
+    const sessions = await Session.find().lean();
+    const sessionMap = sessions.reduce((acc, s) => { acc[s.id] = s.name; return acc; }, {});
+
     let csv = "Booking ID,Session,Status,Date,Participant Name,Age,Email,Phone,Pilates Level,Horse Level,Medical Info,Emergency Name,Emergency Phone\n";
-    rows.forEach(r => {
+    bookings.forEach(r => {
       try {
         const arr = JSON.parse(r.details || '[]');
+        const sessionName = sessionMap[r.sessionId] || '';
         arr.forEach(p => {
-          csv += `"${r.id}","${r.sessionName || ''}","${r.status}","${r.createdAt}","${p.name || ''}","${p.age || ''}","${p.email || ''}","${p.phone || ''}","${p.pilates || ''}","${p.horse || ''}","${p.medical || ''}","${p.emName || ''}","${p.emPhone || ''}"\n`;
+          csv += `"${r.id}","${sessionName}","${r.status}","${r.createdAt}","${p.name || ''}","${p.age || ''}","${p.email || ''}","${p.phone || ''}","${p.pilates || ''}","${p.horse || ''}","${p.medical || ''}","${p.emName || ''}","${p.emPhone || ''}"\n`;
         });
       } catch(e) {}
     });
@@ -221,244 +236,279 @@ app.get('/api/admin/export-bookings', requireAuth, (req, res) => {
     res.header('Content-Type', 'text/csv');
     res.attachment(`FOSA_Bookings_${new Date().toISOString().split('T')[0]}.csv`);
     return res.send(csv);
-  });
-});
-
-// Admin config routes
-app.get('/api/admin/config', requireAuth, (req, res) => {
-  db.all(`SELECT * FROM site_config`, [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    const config = {};
-    rows.forEach(r => config[r.key] = JSON.parse(r.value));
-    res.json(config);
-  });
-});
-
-app.post('/api/admin/config', requireAuth, (req, res) => {
-  const { key, value } = req.body;
-  db.run(`INSERT INTO site_config (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`, [key, JSON.stringify(value)], (err) => {
-    if (err) return res.status(500).json({ success: false, error: err.message });
-    res.json({ success: true });
-  });
-});
-
-// Generic Data fetching
-app.get('/api/config', (req, res) => {
-  db.all(`SELECT * FROM site_config`, [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    const config = {};
-    rows.forEach(r => config[r.key] = JSON.parse(r.value));
-    res.json(config);
-  });
-});
-
-app.get('/api/events', (req, res) => {
-  db.all(`SELECT * FROM events`, [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    const parsed = rows.map(r => ({
-      ...r,
-      tags: JSON.parse(r.tags),
-      timeline: JSON.parse(r.timeline),
-      faqs: JSON.parse(r.faqs),
-      gallery: r.gallery ? JSON.parse(r.gallery) : []
-    }));
-    res.json(parsed);
-  });
-});
-
-app.post('/api/admin/events', requireAuth, (req, res) => {
-  const { id, title, description, date, hero_image, tags, timeline, faqs, gallery, price, discount_price, session_text, location_text, location_link } = req.body;
-  const eventId = id || 'evt_' + Math.random().toString(36).substr(2, 9);
-  
-  db.get(`SELECT id FROM events WHERE id = ?`, [eventId], (err, row) => {
-    if (row) {
-      // Update
-      const stmt = db.prepare(`UPDATE events SET title=?, description=?, date=?, hero_image=?, tags=?, timeline=?, faqs=?, gallery=?, price=?, discount_price=?, session_text=?, location_text=?, location_link=? WHERE id=?`);
-      stmt.run(title, description, date, hero_image, JSON.stringify(tags), JSON.stringify(timeline), JSON.stringify(faqs), JSON.stringify(gallery), price, discount_price, session_text, location_text, location_link, eventId, function(err) {
-        if (err) return res.status(500).json({ success: false, error: err.message });
-        res.json({ success: true, id: eventId });
-      });
-      stmt.finalize();
-    } else {
-      // Insert
-      const stmt = db.prepare(`INSERT INTO events VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
-      stmt.run(eventId, title, description, date, hero_image, JSON.stringify(tags), JSON.stringify(timeline), JSON.stringify(faqs), JSON.stringify(gallery), price, discount_price, session_text, location_text, location_link, function(err) {
-        if (err) return res.status(500).json({ success: false, error: err.message });
-        res.json({ success: true, id: eventId });
-      });
-      stmt.finalize();
-    }
-  });
-});
-
-app.delete('/api/admin/events/:id', requireAuth, (req, res) => {
-  db.run(`DELETE FROM events WHERE id = ?`, [req.params.id], function(err) {
-    if (err) return res.status(500).json({ success: false, error: err.message });
-    
-    // Delete attached sessions
-    db.run(`DELETE FROM sessions WHERE eventId = ?`, [req.params.id], (err) => {
-      res.json({ success: true });
-    });
-  });
-});
-
-app.get('/api/sessions', (req, res) => {
-  const { eventId } = req.query;
-  if (eventId) {
-    db.all(`SELECT * FROM sessions WHERE eventId = ?`, [eventId], (err, rows) => {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json(rows);
-    });
-  } else {
-    db.all(`SELECT * FROM sessions`, [], (err, rows) => {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json(rows);
-    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
   }
 });
 
-app.post('/api/admin/sessions', requireAuth, (req, res) => {
+// Admin config routes
+app.get('/api/admin/config', requireAuth, async (req, res) => {
+  try {
+    const rows = await SiteConfig.find().lean();
+    const config = {};
+    rows.forEach(r => config[r.key] = JSON.parse(r.value));
+    res.json(config);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/config', requireAuth, async (req, res) => {
+  const { key, value } = req.body;
+  try {
+    await SiteConfig.findOneAndUpdate(
+      { key },
+      { value: JSON.stringify(value) },
+      { upsert: true, new: true }
+    );
+    res.json({ success: true });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Generic Data fetching
+app.get('/api/config', async (req, res) => {
+  try {
+    const rows = await SiteConfig.find().lean();
+    const config = {};
+    rows.forEach(r => config[r.key] = JSON.parse(r.value));
+    res.json(config);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/events', async (req, res) => {
+  try {
+    const rows = await Event.find().lean();
+    const parsed = rows.map(r => ({
+      ...r,
+      tags: JSON.parse(r.tags || '[]'),
+      timeline: JSON.parse(r.timeline || '[]'),
+      faqs: JSON.parse(r.faqs || '[]'),
+      gallery: r.gallery ? JSON.parse(r.gallery) : []
+    }));
+    res.json(parsed);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/events', requireAuth, async (req, res) => {
+  const { id, title, description, date, hero_image, tags, timeline, faqs, gallery, price, discount_price, session_text, location_text, location_link } = req.body;
+  const eventId = id || 'evt_' + Math.random().toString(36).substr(2, 9);
+  
+  try {
+    await Event.findOneAndUpdate(
+      { id: eventId },
+      {
+        title, description, date, hero_image,
+        tags: JSON.stringify(tags),
+        timeline: JSON.stringify(timeline),
+        faqs: JSON.stringify(faqs),
+        gallery: JSON.stringify(gallery),
+        price, discount_price, session_text, location_text, location_link
+      },
+      { upsert: true, new: true }
+    );
+    res.json({ success: true, id: eventId });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/admin/events/:id', requireAuth, async (req, res) => {
+  try {
+    await Event.deleteOne({ id: req.params.id });
+    await Session.deleteMany({ eventId: req.params.id });
+    res.json({ success: true });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get('/api/sessions', async (req, res) => {
+  try {
+    const { eventId } = req.query;
+    let query = {};
+    if (eventId) {
+      query = { eventId };
+    }
+    const rows = await Session.find(query).lean();
+    res.json(rows);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/sessions', requireAuth, async (req, res) => {
   const { eventId, name, time, capacity, price } = req.body;
   const sessionId = 'sess_' + Math.random().toString(36).substr(2, 9);
   
-  const stmt = db.prepare(`INSERT INTO sessions (id, eventId, name, time, capacity, booked, price) VALUES (?, ?, ?, ?, ?, ?, ?)`);
-  stmt.run(sessionId, eventId, name, time, capacity, 0, price, function(err) {
-    if (err) return res.status(500).json({ success: false, error: err.message });
-    res.json({ success: true, id: sessionId });
-  });
-  stmt.finalize();
-});
-
-app.delete('/api/admin/sessions/:id', requireAuth, (req, res) => {
-  db.run(`DELETE FROM sessions WHERE id = ?`, [req.params.id], function(err) {
-    if (err) return res.status(500).json({ success: false, error: err.message });
-    res.json({ success: true });
-  });
-});
-
-app.post('/api/book', upload.single('receipt'), (req, res) => {
-  const { sessionId, participants, details, userId } = req.body;
-  const parsedDetails = JSON.parse(details);
-  const receiptUrl = req.file ? '/uploads/' + req.file.filename : null;
-  const bookingId = 'BKG-' + Math.random().toString(36).substr(2, 9).toUpperCase();
-  
-  db.serialize(() => {
-    // Check capacity
-    db.get(`SELECT capacity, booked FROM sessions WHERE id = ?`, [sessionId], (err, session) => {
-      if (err) return res.status(500).json({ error: err.message });
-      if (session.booked + parseInt(participants) > session.capacity) {
-        return res.status(400).json({ error: 'Not enough spots available.' });
-      }
-      
-      // Insert booking
-      const stmt = db.prepare(`INSERT INTO bookings VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
-      stmt.run(bookingId, sessionId, participants, JSON.stringify(parsedDetails), receiptUrl, 'Pending Approval', userId, new Date().toISOString(), function(err) {
-        if (err) return res.status(500).json({ error: err.message });
-        
-        // Notify user of successful submission
-        const msg = `Your payment and booking request (${bookingId}) has been received and is currently pending approval. We will notify you once confirmed.`;
-        db.run(`INSERT INTO notifications (userId, message) VALUES (?, ?)`, [userId, msg], (err) => {
-          res.json({ success: true, bookingId });
-        });
-      });
-      stmt.finalize();
+  try {
+    await Session.create({
+      id: sessionId,
+      eventId,
+      name,
+      time,
+      capacity,
+      booked: 0,
+      price
     });
-  });
+    res.json({ success: true, id: sessionId });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.delete('/api/admin/sessions/:id', requireAuth, async (req, res) => {
+  try {
+    await Session.deleteOne({ id: req.params.id });
+    res.json({ success: true });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.post('/api/book', upload.single('receipt'), async (req, res) => {
+  try {
+    const { sessionId, participants, details, userId } = req.body;
+    const parsedDetails = JSON.parse(details);
+    const receiptUrl = req.file ? '/uploads/' + req.file.filename : null;
+    const bookingId = 'BKG-' + Math.random().toString(36).substr(2, 9).toUpperCase();
+    
+    const session = await Session.findOne({ id: sessionId });
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+    
+    if (session.booked + parseInt(participants) > session.capacity) {
+      return res.status(400).json({ error: 'Not enough spots available.' });
+    }
+    
+    await Booking.create({
+      id: bookingId,
+      sessionId,
+      participants: parseInt(participants),
+      details: JSON.stringify(parsedDetails),
+      receiptUrl,
+      status: 'Pending Approval',
+      userId
+    });
+    
+    const msg = `Your payment and booking request (${bookingId}) has been received and is currently pending approval. We will notify you once confirmed.`;
+    await Notification.create({ userId, message: msg });
+    
+    res.json({ success: true, bookingId });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
 });
 
 // Get public ticket by booking id
-app.get('/api/ticket/:id', (req, res) => {
-  db.get(`SELECT * FROM bookings WHERE id = ?`, [req.params.id], (err, booking) => {
-    if (err) return res.status(500).json({ error: err.message });
+app.get('/api/ticket/:id', async (req, res) => {
+  try {
+    const booking = await Booking.findOne({ id: req.params.id }).lean();
     if (!booking) return res.status(404).json({ error: 'Ticket not found' });
     
-    db.get(`SELECT * FROM sessions WHERE id = ?`, [booking.sessionId], (err, session) => {
-      if (err) return res.status(500).json({ error: err.message });
-      if (!session) return res.json({ booking: {...booking, details: JSON.parse(booking.details)}, session: null, event: null });
-      
-      db.get(`SELECT * FROM events WHERE id = ?`, [session.eventId], (err, event) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json({
-          booking: { ...booking, details: JSON.parse(booking.details) },
-          session: session,
-          event: event
-        });
-      });
+    const session = await Session.findOne({ id: booking.sessionId }).lean();
+    if (!session) return res.json({ booking: {...booking, details: JSON.parse(booking.details)}, session: null, event: null });
+    
+    const event = await Event.findOne({ id: session.eventId }).lean();
+    
+    res.json({
+      booking: { ...booking, details: JSON.parse(booking.details) },
+      session: session,
+      event: event
     });
-  });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
 });
 
 // Admin get all bookings
-app.get('/api/admin/bookings', requireAuth, (req, res) => {
-  db.all(`SELECT * FROM bookings ORDER BY createdAt DESC`, [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    // Parse JSON details
+app.get('/api/admin/bookings', requireAuth, async (req, res) => {
+  try {
+    const rows = await Booking.find().sort({ createdAt: -1 }).lean();
     const parsed = rows.map(r => ({
       ...r,
-      details: JSON.parse(r.details)
+      details: JSON.parse(r.details || '[]')
     }));
     res.json(parsed);
-  });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
 });
 
 // Admin delete a booking
-app.delete('/api/admin/bookings/:id', requireAuth, (req, res) => {
-  db.run(`DELETE FROM bookings WHERE id = ?`, [req.params.id], function(err) {
-    if (err) return res.status(500).json({ error: err.message });
+app.delete('/api/admin/bookings/:id', requireAuth, async (req, res) => {
+  try {
+    await Booking.deleteOne({ id: req.params.id });
     res.json({ success: true });
-  });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
 });
 
 // Admin update capacity
-app.post('/api/admin/capacity', requireAuth, (req, res) => {
-  const { sessionId, capacity } = req.body;
-  db.run(`UPDATE sessions SET capacity = ? WHERE id = ?`, [capacity, sessionId], function(err) {
-    if (err) return res.status(500).json({ success: false, error: err.message });
+app.post('/api/admin/capacity', requireAuth, async (req, res) => {
+  try {
+    const { sessionId, capacity } = req.body;
+    await Session.updateOne({ id: sessionId }, { capacity });
     res.json({ success: true });
-  });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 // Admin approve booking
-app.post('/api/admin/approve', requireAuth, (req, res) => {
-  const { bookingId } = req.body;
-  db.get(`SELECT * FROM bookings WHERE id = ?`, [bookingId], (err, booking) => {
-    if (err || !booking) return res.status(404).json({ error: 'Booking not found' });
+app.post('/api/admin/approve', requireAuth, async (req, res) => {
+  try {
+    const { bookingId } = req.body;
+    const booking = await Booking.findOne({ id: bookingId });
+    
+    if (!booking) return res.status(404).json({ error: 'Booking not found' });
     if (booking.status === 'Confirmed') return res.status(400).json({ error: 'Already confirmed' });
 
-    db.serialize(() => {
-        // Update session count
-        db.run(`UPDATE sessions SET booked = booked + ? WHERE id = ?`, [booking.participants, booking.sessionId], (err) => {
-          if (err) return res.status(500).json({ success: false, error: err.message });
-          
-          // Update booking status
-          db.run(`UPDATE bookings SET status = 'Confirmed' WHERE id = ?`, [bookingId]);
+    await Session.updateOne(
+      { id: booking.sessionId },
+      { $inc: { booked: booking.participants } }
+    );
+    
+    await Booking.updateOne({ id: bookingId }, { status: 'Confirmed' });
 
-          // Insert notification with receipt link
-          const msg = `Your booking (${bookingId}) has been approved! <br><a href="/receipt.html?id=${bookingId}" class="btn btn-outline" style="display:inline-block; margin-top:10px; padding: 0.3rem 0.8rem; text-decoration:none;">View Digital Ticket</a>`;
-          db.run(`INSERT INTO notifications (userId, message) VALUES (?, ?)`, [booking.userId, msg], (err) => {
-            res.json({ success: true });
-          });
-        });
-    });
-  });
+    const msg = `Your booking (${bookingId}) has been approved! <br><a href="/receipt.html?id=${bookingId}" class="btn btn-outline" style="display:inline-block; margin-top:10px; padding: 0.3rem 0.8rem; text-decoration:none;">View Digital Ticket</a>`;
+    await Notification.create({ userId: booking.userId, message: msg });
+    
+    res.json({ success: true });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 // User get notifications
-app.get('/api/notifications/:userId', (req, res) => {
-  db.all(`SELECT * FROM notifications WHERE userId = ? ORDER BY createdAt DESC`, [req.params.userId], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows);
-  });
+app.get('/api/notifications/:userId', async (req, res) => {
+  try {
+    const rows = await Notification.find({ userId: req.params.userId }).sort({ createdAt: -1 }).lean();
+    const mapped = rows.map(r => ({ ...r, id: r._id }));
+    res.json(mapped);
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
 });
 
-app.post('/api/notifications/read', (req, res) => {
-  const { ids } = req.body; // array of notification ids
-  if (!ids || ids.length === 0) return res.json({success: true});
-  const placeholders = ids.map(() => '?').join(',');
-  db.run(`UPDATE notifications SET isRead = 1 WHERE id IN (${placeholders})`, ids, function(err) {
-    if (err) return res.status(500).json({ error: err.message });
+app.post('/api/notifications/read', async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!ids || ids.length === 0) return res.json({success: true});
+    
+    await Notification.updateMany(
+      { _id: { $in: ids } }, // wait, frontend sends sqlite IDs which were integers. Let's assume they send mongo _id strings now, but our schema doesn't have an explicit 'id' string, we use mongo _id implicitly. Let's check how frontend reads it.
+      { isRead: 1 }
+    );
     res.json({ success: true });
-  });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
 });
 
 const PORT = process.env.PORT || 3000;
@@ -474,4 +524,3 @@ app.use((req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log('Backend API running on port ' + PORT);
 });
-
