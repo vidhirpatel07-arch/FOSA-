@@ -337,7 +337,12 @@ window.submitBooking = async () => {
       const flowContainer = document.getElementById('booking-flow');
       flowContainer.innerHTML = `
         <div style="text-align:center; padding: var(--spacing-lg) 0;">
-          <div style="font-size:4rem; color:var(--color-accent-gold); margin-bottom:var(--spacing-sm);">&#10003;</div>
+          <div style="margin-bottom:var(--spacing-sm);">
+            <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent-gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+          </div>
           <h2 class="mb-sm">Registration Submitted</h2>
           <p class="mb-md" style="font-size:1.1rem; color:var(--color-secondary-taupe);">Your payment is pending review.</p>
           
