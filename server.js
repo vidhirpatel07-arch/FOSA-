@@ -375,7 +375,12 @@ app.post('/api/book', upload.single('receipt'), async (req, res) => {
   try {
     const { sessionId, participants, details, userId } = req.body;
     const parsedDetails = JSON.parse(details);
-    const receiptUrl = req.file ? '/uploads/' + req.file.filename : null;
+    let receiptUrl = null;
+    if (req.file) {
+      const fileData = fs.readFileSync(req.file.path);
+      receiptUrl = `data:${req.file.mimetype};base64,${fileData.toString('base64')}`;
+      try { fs.unlinkSync(req.file.path); } catch (e) {} // cleanup local temp file
+    }
     const bookingId = 'BKG-' + Math.random().toString(36).substr(2, 9).toUpperCase();
     
     const session = await Session.findOne({ id: sessionId });
